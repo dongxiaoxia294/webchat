@@ -1,0 +1,27 @@
+<html>
+    <meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+    <title>聊天室-登录</title>
+    <script src="js/jquery.js"></script>
+    <script>
+        $(function(){
+            $("#btn").click(function () {
+                $.get("login",$("#loginForm").serialize(),function (res) {
+                    if(res.flag){
+                        location.href="main.html";
+                    }else {
+                        $("#err_msg").html(res.message)
+                    }
+                },"json");
+            });
+        });
+    </script>
+    <body>
+    <form id="loginForm">
+        <div>用户名：<input type="text" name="username"></div>
+        <div>密码：<input type="password" name="password"></div>
+        <div><input type="button" value="登录" id="btn"></div>
+        <div id="err_msg"></div>
+    </form>
+
+    </body>
+</html>

@@ -1,0 +1,180 @@
+<html>
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+<title>聊天室</title>
+<link href="css/bootstrap.css" rel="stylesheet" type="text/css"/>
+<link rel="stylesheet" href="css/chat.css"/>
+<script src="js/jquery.js"></script>
+<script>
+    var toName;
+    var username;
+    function showChat(name){
+        toName = name;
+        //展示聊天对话框
+        $("#chatArea").css("display","inline");
+        //显示“正在聊天”状态
+        $("#chatMes").html("正在和<font face=\"楷体\">"+toName+"</font>聊天")
+
+        //先清空聊天记录的展示
+        $("#msgs").html("");
+        //展示历史聊天记录 sessionStorage
+        var chatData = sessionStorage.getItem(toName);
+        if (chatData !=null){
+            //把历史记录展示出来
+            $("#msgs").html(chatData);
+        }
+    }
+
+    $(function(){
+        $.ajax({
+            url:"getUsername",
+            success:function (res) {
+                username=res;
+                $("#userName").html("用户："+res+"<span style='float:right;color:green'>在线</span>");
+            },
+            async:false
+        });
+
+        //创建webSocket对象
+        var ws = new WebSocket("ws://localhost/chat");
+        //给ws绑定事件
+        ws.onopen = function (){
+            //当前登录用户状态在线
+            $("#userName").html("用户："+username+"<span style='float:right;color:green'>在线</span>");
+        }
+        //接收服务端消息
+        ws.onmessage = function (evt) {
+            var datastr = evt.data;
+            //转json对象
+            var res = JSON.parse(datastr);
+            if (res.system){
+                //系统消息
+                var names = res.message;
+                //1、处理好友列表
+                //2、处理广播的展示
+                var userlistStr = "";
+                var broadcastListStr = "";
+                for(var name of names){
+                    if (username != name){
+                        userlistStr += "<li class=\"rel-item\"><a onclick=\"showChat('"+name+"')\">"+name+"</a> </li>";
+                        broadcastListStr += "<li class=\"rel-item\" style=\"color: #9d9d9d;font-family: 宋体\">您的好友 "+name+" 已上线</li>";
+                    }
+                }
+                $("#userlist").html(userlistStr);
+                $("#broadcastList").html(broadcastListStr);
+            }else {
+                //好友发来的消息
+                var str = "<div class=\"msg robot\"><div class=\"msg-left\" worker=\"\"><div class=\"msg-host photo\" style=\"background-image: url('img/avator.png')\"></div><div class=\"msg-ball\">"+res.message+"</div></div> </div>";
+                if(res.fromName == toName){
+                    $("#msgs").append(str);
+                }
+
+                //保存聊天记录
+                var chatData = sessionStorage.getItem(res.fromName);
+                if (chatData!=null){
+                    str = chatData + str;
+                }
+                sessionStorage.setItem(res.fromName,str);
+
+            }
+        }
+        
+        ws.onclose = function () {
+            //当前登录用户状态离线
+            $("#userName").html("用户："+username+"<span style='float:right;color:red'>离线</span>");
+        }
+
+        //通过websocket把聊天内容发送到服务端
+        $("#submit").click(function () {
+            //获取输入的内容
+            var data = $("#context_text").val();
+            //情况输入区的内容
+            $("#context_text").val("");
+
+            //将自己发送的信息展示在聊天框中
+            var str = "<div class=\"msg guest\"><div class=\"msg-right\"><div class=\"msg-host head-default\"></div> <div class=\"msg-ball\">"+data+"</div></div> </div>";
+            $("#msgs").append(str);
+            //发送数据给服务器端
+            var json = {"toName":toName,"message":data};
+            ws.send(JSON.stringify(json));
+            //保存聊天记录
+            var chatData = sessionStorage.getItem(toName);
+            if(chatData!=null){
+                str = chatData +str;
+            }
+            sessionStorage.setItem(toName,str);
+
+        });
+
+    });
+</script>
+<body>
+<div class="abs cover container">
+    <div class="abs cover pnl">
+        <div class="top pnl-head" style="">
+            <div id="userName">用户：张三<span style="float: right;color: green">在线</span></div>
+            <div id="chatMes" style="">
+            </div>
+        </div>
+
+
+        <div class="abs cover pnl-body" id="pnlBody">
+            <!--聊天区开始-->
+            <div class="abs cover pnl-left" id="initBackground" style="background-color: white;width: 100%">
+                <div class="abs cover pnl-left" id="chatArea" style="display: none">
+                    <div class="abs cover pnl-msgs scroll" id="show">
+                        <div class="pnl-list" id="hists"><!--历史消息--></div>
+                        <div class="pnl-list" id="msgs">
+                            <!--消息展示区域-->
+                            <!--<div class="msg guest"><div class="msg-right"><div class="msg-host head-default"></div> <div class="msg-ball">您好</div></div> </div>-->
+                            <!--<div class="msg robot"><div class="msg-left" worker=""><div class="msg-host photo" style="background-image: url('img/avator.png')"></div> <div class="msg-ball">您好</div></div> </div>-->
+                        </div>
+                    </div>
+
+
+                    <div class="abs bottom pnl-text">
+                        <div class="abs cover pnl-input">
+                            <textarea class="scroll" id="context_text" wrap="hard" placeholder="在此输入文字信息。。。"></textarea>
+                            <div class="abs atcon-pnl scroll hide" id="atcomPnl">
+                                <ul class="atcom" id="atcom"></ul>
+                            </div>
+                        </div>
+
+                        <div class="abs br pnl-btn" id="submit">发送</div>
+                        <div class="pnl-support" id="copyright">版本信息</div>
+                    </div>
+                </div>
+                <!--聊天区结束-->
+
+                <div class="abs right pnl-right">
+                    <div class="slider-container hide"></div>
+                    <div class="pnl-right-content">
+                        <div class="pnl-tabs">
+                            <div class="tab-btn active" id="hot-tab">好友列表</div>
+                        </div>
+                        <div class="pnl-hot">
+                            <ul class="rel-list unselect" id="userlist">
+                                <!--<li class="rel-item"><a onclick="showChat('白芷')">白芷</a> </li>
+                                <li class="rel-item"><a onclick="showChat('当归')">当归</a> </li>-->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="pnl-right-content">
+                        <div class="pnl-tabs">
+                            <div class="tab-btn active">系统广播</div>
+                        </div>
+                        <div class="pnl-hot">
+                            <ul class="rel-list unselect" id="broadcastList">
+<!--                                <li class="rel-item" style="color: #9d9d9d;font-family: 宋体">您的好友 白芷 已上线</li>-->
+<!--                                <li class="rel-item" style="color: #9d9d9d;font-family: 宋体">您的好友 当归 已上线</li>-->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+</body>
+</html>
